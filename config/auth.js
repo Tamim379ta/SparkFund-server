@@ -1,0 +1,30 @@
+const { betterAuth } = require("better-auth");
+const { mongodbAdapter } = require("better-auth/adapters/mongodb");
+const { MongoClient } = require("mongodb");
+
+const client = new MongoClient(process.env.MONGO_URI);
+const db = client.db("sparkfund");
+
+const auth = betterAuth({
+  database: mongodbAdapter(db),
+  baseURL: "http://localhost:5000",
+  secret: process.env.BETTER_AUTH_SECRET,
+  trustedOrigins: ["http://localhost:3000"],
+  emailAndPassword: {
+    enabled: true,
+  },
+  user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        defaultValue: "supporter",
+      },
+      credits: {
+        type: "number",
+        defaultValue: 50,
+      },
+    },
+  },
+});
+
+module.exports = auth;
