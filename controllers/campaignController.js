@@ -90,6 +90,64 @@ const updateCampaignStatus = async (req, res) => {
   }
 };
 
+// Update campaign
+const updateCampaign = async (req, res) => {
+  try {
+    const { title, description, rewardInfo } = req.body;
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
+    if (campaign.creatorId !== req.user.userId) return res.status(403).json({ success: false, message: "Forbidden" });
+
+    campaign.title = title || campaign.title;
+    campaign.description = description || campaign.description;
+    campaign.rewardInfo = rewardInfo || campaign.rewardInfo;
+    await campaign.save();
+
+    res.json({ success: true, campaign });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Delete campaign
+const deleteCampaign = async (req, res) => {
+  try {
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
+    if (campaign.creatorId !== req.user.userId) return res.status(403).json({ success: false, message: "Forbidden" });
+
+    // Refund all approved supporters
+    const Contribution = require("../models/Contribution");
+    const { MongoClient, ObjectId } = require("mongodb");
+
+    const approvedContributions = await Contribution.find({
+      campaignId: req.params.id,
+      status: "approved",
+    });
+
+    if (approvedContributions.length > 0) {
+      const client = new MongoClient(process.env.MONGO_URI);
+      await client.connect();
+      const db = client.db("sparkfund");
+
+      for (const contribution of approvedContributions) {
+        await db.collection("user").updateOne(
+          { _id: new ObjectId(contribution.supporterId) },
+          { $inc: { credits: contribution.credits } }
+        );
+      }
+      await client.close();
+    }
+
+    await Contribution.deleteMany({ campaignId: req.params.id });
+    await Campaign.findByIdAndDelete(req.params.id);
+
+    res.json({ success: true, message: "Campaign deleted and supporters refunded" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   createCampaign,
   getCampaigns,
@@ -97,4 +155,7 @@ module.exports = {
   getMyCampaigns,
   getAllCampaigns,
   updateCampaignStatus,
+  updateCampaign,
+  deleteCampaign,
 };
+

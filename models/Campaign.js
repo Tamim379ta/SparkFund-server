@@ -45,6 +45,10 @@ const campaignSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    rewardInfo: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

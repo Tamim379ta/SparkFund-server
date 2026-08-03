@@ -7,6 +7,7 @@ const connectDB = require("./config/db");
 const auth = require("./config/auth");
 const { toNodeHandler } = require("better-auth/node");
 
+
 connectDB();
 
 const app = express();
@@ -17,7 +18,11 @@ app.all("/api/auth/{*splat}", toNodeHandler(auth));
 
 app.use(express.json());
 
+const contributionRoutes = require("./routes/contributionRoutes");
 const campaignRoutes = require("./routes/campaignRoutes");
+
+
+app.use("/api/contributions", contributionRoutes);
 app.use("/api/campaigns", campaignRoutes);
 
 app.get("/", (req, res) => res.send("SparkFund Server is running"));
