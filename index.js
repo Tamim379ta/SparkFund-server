@@ -35,7 +35,25 @@ const campaignRoutes = require("./routes/campaignRoutes");
 const contributionRoutes = require("./routes/contributionRoutes");
 const withdrawalRoutes = require("./routes/withdrawalRoutes");
 const userRoutes = require("./routes/userRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 
+
+app.get("/api/top-funded", async (req, res) => {
+  try {
+    const Campaign = require("./models/Campaign");
+    const campaigns = await Campaign.find({ status: "active" })
+      .sort({ raisedCredits: -1 })
+      .limit(6);
+
+    res.json({ success: true, campaigns });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.use("/api/reports", reportRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/campaigns", campaignRoutes);
 app.use("/api/contributions", contributionRoutes);
 app.use("/api/withdrawals", withdrawalRoutes);

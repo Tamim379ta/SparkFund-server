@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const Campaign = require("../models/Campaign");
 const { protect, restrictTo } = require("../middlewares/authMiddleware");
 const {
   createCampaign,
@@ -11,6 +12,18 @@ const {
   updateCampaign,
   deleteCampaign
 } = require("../controllers/campaignController");
+
+// Public - top funded
+router.get("/top-funded", async (req, res) => {
+  try {
+    const campaigns = await Campaign.find({ status: "active" })
+      .sort({ raisedCredits: -1 })
+      .limit(6);
+    res.json({ success: true, campaigns });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 // Public
 router.get("/", getCampaigns);

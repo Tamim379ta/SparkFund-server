@@ -1,5 +1,6 @@
 const Contribution = require("../models/Contribution");
 const Campaign = require("../models/Campaign");
+const Notification = require("../models/Notification");
 const { MongoClient, ObjectId } = require("mongodb");
 
 // Supporter - create contribution
@@ -12,19 +13,33 @@ const createContribution = async (req, res) => {
     if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
     if (campaign.status !== "active") return res.status(400).json({ success: false, message: "Campaign is not active" });
 
-    // Deduct credits from supporter using MongoDB directly
     const client = new MongoClient(process.env.MONGO_URI);
     await client.connect();
     const db = client.db("sparkfund");
     const usersCollection = db.collection("user");
 
-   const supporter = await usersCollection.findOne({ _id: new ObjectId(userId) });
+    const supporter = await usersCollection.findOne({ _id: new ObjectId(userId) });
     if (!supporter || supporter.credits < credits) {
       await client.close();
       return res.status(400).json({ success: false, message: "Insufficient credits" });
     }
 
     await usersCollection.updateOne({ _id: new ObjectId(userId) }, { $inc: { credits: -credits } });
+
+    // Notify creator
+    try {
+      const creator = await db.collection("user").findOne({ _id: new ObjectId(campaign.creatorId) });
+      if (creator?.email) {
+        await Notification.create({
+          message: `${userName} contributed ${credits} credits to your campaign "${campaign.title}"`,
+          toEmail: creator.email,
+          actionRoute: "/dashboard/creator/campaigns",
+        });
+      }
+    } catch (notifErr) {
+      console.error("Notification error:", notifErr);
+    }
+
     await client.close();
 
     const contribution = await Contribution.create({
@@ -78,12 +93,10 @@ const updateContributionStatus = async (req, res) => {
     if (contribution.creatorId !== req.user.userId) return res.status(403).json({ success: false, message: "Forbidden" });
 
     if (status === "approved") {
-      // Add credits to campaign
       await Campaign.findByIdAndUpdate(contribution.campaignId, {
         $inc: { raisedCredits: contribution.credits },
       });
     } else if (status === "rejected") {
-      // Refund credits to supporter
       const client = new MongoClient(process.env.MONGO_URI);
       await client.connect();
       const db = client.db("sparkfund");
@@ -97,13 +110,30 @@ const updateContributionStatus = async (req, res) => {
     contribution.status = status;
     await contribution.save();
 
+    // Notify supporter
+    try {
+      const client = new MongoClient(process.env.MONGO_URI);
+      await client.connect();
+      const db = client.db("sparkfund");
+      const supporter = await db.collection("user").findOne({ _id: new ObjectId(contribution.supporterId) });
+      await client.close();
+
+      if (supporter?.email) {
+        await Notification.create({
+          message: `Your contribution of ${contribution.credits} credits to "${contribution.campaignTitle}" was ${status} by the creator`,
+          toEmail: supporter.email,
+          actionRoute: "/dashboard/supporter/contributions",
+        });
+      }
+    } catch (notifErr) {
+      console.error("Notification error:", notifErr);
+    }
+
     res.json({ success: true, contribution });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
 
 module.exports = {
   createContribution,

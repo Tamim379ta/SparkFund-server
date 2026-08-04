@@ -1,4 +1,6 @@
 const Campaign = require("../models/Campaign");
+const Notification = require("../models/Notification");
+const { MongoClient, ObjectId } = require("mongodb");
 
 // Create campaign
 const createCampaign = async (req, res) => {
@@ -79,11 +81,28 @@ const getAllCampaigns = async (req, res) => {
 const updateCampaignStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const campaign = await Campaign.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
+    const campaign = await Campaign.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
+
+    // Notify creator
+    try {
+      const client = new MongoClient(process.env.MONGO_URI);
+      await client.connect();
+      const db = client.db("sparkfund");
+      const creator = await db.collection("user").findOne({ _id: new ObjectId(campaign.creatorId) });
+      await client.close();
+
+      if (creator?.email) {
+        await Notification.create({
+          message: `Your campaign "${campaign.title}" was ${status} by the admin`,
+          toEmail: creator.email,
+          actionRoute: "/dashboard/creator/campaigns",
+        });
+      }
+    } catch (notifErr) {
+      console.error("Notification error:", notifErr);
+    }
+
     res.json({ success: true, campaign });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -116,9 +135,7 @@ const deleteCampaign = async (req, res) => {
     if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
     if (campaign.creatorId !== req.user.userId) return res.status(403).json({ success: false, message: "Forbidden" });
 
-    // Refund all approved supporters
     const Contribution = require("../models/Contribution");
-    const { MongoClient, ObjectId } = require("mongodb");
 
     const approvedContributions = await Contribution.find({
       campaignId: req.params.id,
@@ -129,7 +146,6 @@ const deleteCampaign = async (req, res) => {
       const client = new MongoClient(process.env.MONGO_URI);
       await client.connect();
       const db = client.db("sparkfund");
-
       for (const contribution of approvedContributions) {
         await db.collection("user").updateOne(
           { _id: new ObjectId(contribution.supporterId) },
@@ -158,4 +174,3 @@ module.exports = {
   updateCampaign,
   deleteCampaign,
 };
-
