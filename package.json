@@ -13,11 +13,13 @@
   "type": "commonjs",
   "dependencies": {
     "@better-auth/mongo-adapter": "^1.6.25",
+    "@stripe/stripe-js": "^9.12.1",
     "better-auth": "^1.6.25",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "mongodb": "^7.5.0",
-    "mongoose": "^9.9.1"
+    "mongoose": "^9.9.1",
+    "stripe": "^22.4.0"
   }
 }
