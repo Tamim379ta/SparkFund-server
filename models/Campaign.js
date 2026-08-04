@@ -49,6 +49,14 @@ const campaignSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    minimumContribution: {
+      type: Number,
+      default: 1,
+    },
+    rewardInfo: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

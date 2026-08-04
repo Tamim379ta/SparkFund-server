@@ -2,6 +2,8 @@ const Withdrawal = require("../models/Withdrawal");
 const Campaign = require("../models/Campaign");
 const { MongoClient, ObjectId } = require("mongodb");
 
+const Notification = require("../models/Notification");
+
 // Creator - request withdrawal
 const createWithdrawal = async (req, res) => {
   try {
@@ -96,6 +98,18 @@ const approveWithdrawal = async (req, res) => {
 
     withdrawal.status = "approved";
     await withdrawal.save();
+
+    try {
+      if (withdrawal.creatorEmail) {
+        await Notification.create({
+          message: `Your withdrawal request of ${withdrawal.creditsToWithdraw} credits ($${withdrawal.withdrawalAmount.toFixed(2)}) was approved`,
+          toEmail: withdrawal.creatorEmail,
+          actionRoute: "/dashboard/creator/withdrawals",
+        });
+      }
+    } catch (notifErr) {
+      console.error("Notification error:", notifErr);
+    }
 
     res.json({ success: true, withdrawal });
   } catch (error) {

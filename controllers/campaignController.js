@@ -5,8 +5,9 @@ const { MongoClient, ObjectId } = require("mongodb");
 // Create campaign
 const createCampaign = async (req, res) => {
   try {
-    const { title, description, category, image, goalCredits, deadline } = req.body;
     const { userId, userName } = req.user;
+
+    const { title, description, category, image, goalCredits, minimumContribution, deadline, rewardInfo } = req.body;
 
     const campaign = await Campaign.create({
       title,
@@ -14,7 +15,9 @@ const createCampaign = async (req, res) => {
       category,
       image,
       goalCredits,
+      minimumContribution,
       deadline,
+      rewardInfo,
       creatorId: userId,
       creatorName: userName,
     });
