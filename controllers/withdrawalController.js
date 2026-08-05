@@ -1,8 +1,16 @@
 const Withdrawal = require("../models/Withdrawal");
 const Campaign = require("../models/Campaign");
+const Notification = require("../models/Notification");
 const { MongoClient, ObjectId } = require("mongodb");
 
-const Notification = require("../models/Notification");
+const getAdminEmail = async () => {
+  const client = new MongoClient(process.env.MONGO_URI);
+  await client.connect();
+  const db = client.db("sparkfund");
+  const admin = await db.collection("user").findOne({ role: "admin" });
+  await client.close();
+  return admin?.email || "";
+};
 
 // Creator - request withdrawal
 const createWithdrawal = async (req, res) => {
@@ -14,7 +22,6 @@ const createWithdrawal = async (req, res) => {
       return res.status(400).json({ success: false, message: "Minimum withdrawal is 200 credits" });
     }
 
-    // Get total raised credits across all campaigns
     const campaigns = await Campaign.find({ creatorId: userId, status: "active" });
     const totalRaised = campaigns.reduce((sum, c) => sum + c.raisedCredits, 0);
 
@@ -22,7 +29,6 @@ const createWithdrawal = async (req, res) => {
       return res.status(400).json({ success: false, message: "Insufficient raised credits" });
     }
 
-    // Get creator email
     const client = new MongoClient(process.env.MONGO_URI);
     await client.connect();
     const db = client.db("sparkfund");
@@ -40,6 +46,20 @@ const createWithdrawal = async (req, res) => {
       paymentSystem,
       accountNumber,
     });
+
+    // Notify admin
+    try {
+      const adminEmail = await getAdminEmail();
+      if (adminEmail) {
+        await Notification.create({
+          message: `${userName} requested a withdrawal of ${creditsToWithdraw} credits ($${withdrawalAmount.toFixed(2)})`,
+          toEmail: adminEmail,
+          actionRoute: "/dashboard/admin/withdrawals",
+        });
+      }
+    } catch (notifErr) {
+      console.error("Notification error:", notifErr);
+    }
 
     res.status(201).json({ success: true, withdrawal });
   } catch (error) {
@@ -68,7 +88,7 @@ const getTotalRaised = async (req, res) => {
   }
 };
 
-// Admin - get all pending withdrawals
+// Admin - get all withdrawals
 const getAllWithdrawals = async (req, res) => {
   try {
     const withdrawals = await Withdrawal.find().sort({ createdAt: -1 });
@@ -85,7 +105,6 @@ const approveWithdrawal = async (req, res) => {
     if (!withdrawal) return res.status(404).json({ success: false, message: "Withdrawal not found" });
     if (withdrawal.status === "approved") return res.status(400).json({ success: false, message: "Already approved" });
 
-    // Deduct credits from creator's campaigns
     const campaigns = await Campaign.find({ creatorId: withdrawal.creatorId, status: "active" }).sort({ raisedCredits: -1 });
     let remaining = withdrawal.creditsToWithdraw;
 
@@ -99,6 +118,7 @@ const approveWithdrawal = async (req, res) => {
     withdrawal.status = "approved";
     await withdrawal.save();
 
+    // Notify creator
     try {
       if (withdrawal.creatorEmail) {
         await Notification.create({

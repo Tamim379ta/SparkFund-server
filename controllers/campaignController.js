@@ -2,11 +2,19 @@ const Campaign = require("../models/Campaign");
 const Notification = require("../models/Notification");
 const { MongoClient, ObjectId } = require("mongodb");
 
+const getAdminEmail = async () => {
+  const client = new MongoClient(process.env.MONGO_URI);
+  await client.connect();
+  const db = client.db("sparkfund");
+  const admin = await db.collection("user").findOne({ role: "admin" });
+  await client.close();
+  return admin?.email || "";
+};
+
 // Create campaign
 const createCampaign = async (req, res) => {
   try {
     const { userId, userName } = req.user;
-
     const { title, description, category, image, goalCredits, minimumContribution, deadline, rewardInfo } = req.body;
 
     const campaign = await Campaign.create({
@@ -21,6 +29,20 @@ const createCampaign = async (req, res) => {
       creatorId: userId,
       creatorName: userName,
     });
+
+    // Notify admin
+    try {
+      const adminEmail = await getAdminEmail();
+      if (adminEmail) {
+        await Notification.create({
+          message: `New campaign "${title}" submitted by ${userName} is waiting for approval`,
+          toEmail: adminEmail,
+          actionRoute: "/dashboard/admin/campaigns",
+        });
+      }
+    } catch (notifErr) {
+      console.error("Notification error:", notifErr);
+    }
 
     res.status(201).json({ success: true, campaign });
   } catch (error) {
