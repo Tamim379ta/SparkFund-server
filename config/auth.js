@@ -7,9 +7,12 @@ const db = client.db("sparkfund");
 
 const auth = betterAuth({
   database: mongodbAdapter(db),
-  baseURL: "http://localhost:5000",
+  baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
-  trustedOrigins: ["http://localhost:3000"],
+  trustedOrigins: [
+    process.env.CLIENT_URL,
+    "http://localhost:3000",
+  ],
   emailAndPassword: {
     enabled: true,
   },
@@ -26,5 +29,4 @@ const auth = betterAuth({
     },
   },
 });
-
 module.exports = auth;
