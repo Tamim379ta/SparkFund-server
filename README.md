@@ -3,7 +3,7 @@
 REST API for the SparkFund crowdfunding platform. Built with Express.js, MongoDB, and Better Auth.
 
 ## 🔗 Live API
-[https://sparkfund-server.vercel.app](https://sparkfund-server.vercel.app)
+[click here](https://sparkfund-server-3y5w.onrender.com)
 
 ## 🛠️ Tech Stack
 
