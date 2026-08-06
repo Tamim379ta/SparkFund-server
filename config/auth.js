@@ -1,10 +1,3 @@
-const { betterAuth } = require("better-auth");
-const { mongodbAdapter } = require("better-auth/adapters/mongodb");
-const { MongoClient } = require("mongodb");
-
-const client = new MongoClient(process.env.MONGO_URI);
-const db = client.db("sparkfund");
-
 const auth = betterAuth({
   database: mongodbAdapter(db),
   baseURL: process.env.BETTER_AUTH_URL,
@@ -13,6 +6,21 @@ const auth = betterAuth({
     process.env.CLIENT_URL,
     "http://localhost:3000",
   ],
+  session: {
+    cookieCache: {
+      enabled: false,
+    },
+  },
+  advanced: {
+    crossSubdomainCookies: {
+      enabled: false,
+    },
+    defaultCookieAttributes: {
+      sameSite: "none",
+      secure: true,
+      partitioned: true,
+    },
+  },
   emailAndPassword: {
     enabled: true,
   },
@@ -29,4 +37,3 @@ const auth = betterAuth({
     },
   },
 });
-module.exports = auth;
